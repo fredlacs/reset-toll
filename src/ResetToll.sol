@@ -7,25 +7,20 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @notice A toll that the fees resets to 0 after each time it is charged
 contract ResetToll is Ownable {
+    address public constant ETHER_ADDR = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     /// @notice gets sent funds after fee is deducted
     address public receiver;
-
     /// @notice tracks the fee for each given asset. resets to 0 after charged
-    /// @dev asset addr => tax
     mapping(address => uint256) public fee;
-
-    /// @dev ether can be represented through an address as defined in ERC-7528
-    address internal constant ETHER_ADDR = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     event ReceiverUpdated(address indexed oldReceived, address indexed newReceiver);
     event FeeUpdated(address indexed asset, uint256 newFee);
     event AssetSent(address indexed asset, uint256 amountSent, uint256 feeCharged);
 
-    constructor(address initialRecipient) Ownable(msg.sender) {
-        setReceiver(initialRecipient);
+    constructor(address initialReceiver) Ownable(msg.sender) {
+        setReceiver(initialReceiver);
     }
 
-    /// @notice receives fees
     function setReceiver(address newReceiver) public onlyOwner {
         require(newReceiver != address(0), "receiver can't be zero");
         receiver = newReceiver;
@@ -38,25 +33,23 @@ contract ResetToll is Ownable {
         emit FeeUpdated(asset, newFee);
     }
 
-    /// @notice anyone can trigger funds to be sent through, with the fee enforced by the owner. Fee gets reset to zero for the given asset
+    /// @notice anyone can trigger funds to be sent through, with the fee enforced by the owner.
+    /// Fee gets reset to zero for the given asset after transfer. Only sends if balance > fee[asset]
     function sendFunds(address asset) external {
-        uint256 feeToDeduct = fee[asset];
+        uint256 currFee = fee[asset];
         fee[asset] = 0;
 
         uint256 balance = asset == ETHER_ADDR ? address(this).balance : IERC20(asset).balanceOf(address(this));
-        require(balance > feeToDeduct, "not enough funds");
+        uint256 remaining = balance - currFee;
 
-        uint256 remaining = balance - feeToDeduct;
-
-        safeTransferAsset(asset, owner(), feeToDeduct);
+        if (currFee > 0) safeTransferAsset(asset, owner(), currFee);
         safeTransferAsset(asset, receiver, remaining);
-
-        emit AssetSent(asset, remaining, feeToDeduct);
+        emit AssetSent(asset, remaining, currFee);
     }
 
     function safeTransferAsset(address asset, address destination, uint256 amount) internal {
-        if(asset == ETHER_ADDR) {
-            (bool success, ) = payable(destination).call{ value: amount}("");
+        if (asset == ETHER_ADDR) {
+            (bool success,) = payable(destination).call{value: amount}("");
             require(success, "fail send ether");
         } else {
             SafeERC20.safeTransfer(IERC20(asset), destination, amount);
