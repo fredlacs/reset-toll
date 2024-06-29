@@ -30,17 +30,17 @@ contract ResetToll is Ownable {
         emit FeeUpdated(asset, newFee);
     }
 
-    /// @notice anyone can trigger funds to be sent through, with the fee enforced by the owner.
+    /// @notice anyone can trigger funds to be sent through, with the fee set by the owner.
     /// Fee gets reset to zero for the given asset after transfer. Only sends if balance > fee[asset]
     function sendFunds(address asset) external {
         uint256 currFee = fee[asset];
         fee[asset] = 0;
 
         uint256 balance = asset == ETHER_ADDR ? address(this).balance : IERC20(asset).balanceOf(address(this));
-        uint256 remaining = balance - currFee;
+        uint256 remaining = balance - currFee; // will revert because of underflow if currFee > balance
 
         if (currFee > 0) safeTransferAsset(asset, owner(), currFee);
-        safeTransferAsset(asset, receiver, remaining);
+        if (remaining > 0) safeTransferAsset(asset, receiver, remaining);
         emit AssetSent(asset, remaining, currFee);
     }
 
