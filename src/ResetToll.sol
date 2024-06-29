@@ -5,12 +5,9 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-/// @notice A toll that the fees resets to 0 after each time it is charged
 contract ResetToll is Ownable {
     address public constant ETHER_ADDR = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-    /// @notice gets sent funds after fee is deducted
     address public receiver;
-    /// @notice tracks the fee for each given asset. resets to 0 after charged
     mapping(address => uint256) public fee;
 
     event ReceiverUpdated(address indexed oldReceived, address indexed newReceiver);
